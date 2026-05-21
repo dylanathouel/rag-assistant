@@ -1,109 +1,131 @@
+"""
+ingest.py — Pipeline d'ingestion d'un document dans le RAG.
+
+Workflow :
+  1. Télécharge le document
+  2. UPSERT dans documents → récupère document_id
+  3. Chunke le texte (SemanticChunker)
+  4. Embed chaque chunk (Voyage)
+  5. INSERT batch dans chunks
+Tout dans UNE transaction : si ça crash en cours, rollback complet, pas de demi-état.
+"""
 import requests
 import psycopg
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config import (
-    VOYAGE_API_KEY, 
-    VOYAGE_MODEL, 
-    DB_CONNECTION_STRING,
-    CHUNK_SIZE,
-    CHUNK_OVERLAP
-)
+from psycopg.types.json import Jsonb
+
+from config import DB_CONNECTION_STRING, VOYAGE_MODEL
 from utils import get_embedding
+from rag.chunker import chunk_text
 
-def create_table():
-    """Crée la table chunks si elle n'existe pas."""
-    conn = psycopg.connect(DB_CONNECTION_STRING)
-    cursor = conn.cursor()
-    
-    print("📦 Création de la table chunks...")
-    cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS chunks (
-            id SERIAL PRIMARY KEY,
-            content TEXT NOT NULL,
-            source TEXT NOT NULL,
-            embedding vector(1024)
-        );
-    """)
-    
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS chunks_embedding_idx 
-        ON chunks 
-        USING hnsw (embedding vector_cosine_ops);
-    """)
-    
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("✅ Table prête !\n")
 
-def download_doc(url):
-    """Télécharge un document."""
+def download_doc(url: str) -> str:
     print(f"📥 Téléchargement de {url}...")
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
     return response.text
 
-def chunk_text(text, chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP):
-    """Découpe le texte en chunks sémantiques."""
-    print(f"✂️  Chunking ({chunk_size} chars, overlap {chunk_overlap})...")
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap
-    )
-    chunks = splitter.split_text(text)
-    print(f"   → {len(chunks)} chunks créés")
-    return chunks
 
-def store_chunks(chunks, source):
-    """Stocke les chunks avec leurs embeddings dans Postgres."""
-    conn = psycopg.connect(DB_CONNECTION_STRING)
-    cursor = conn.cursor()
+def upsert_document(cursor, source: str, title: str | None = None, metadata: dict | None = None) -> int:
+    """
+    UPSERT dans documents et retourne l'id.
     
-    # 🗑️ SUPPRIMER tous les chunks avec cette source
-    print(f"🗑️  Suppression des chunks existants pour {source}...")
-    cursor.execute("DELETE FROM chunks WHERE source = %s", (source,))
+    ON CONFLICT (source) DO UPDATE : Postgres regarde la contrainte UNIQUE sur `source`.
+      - Si source n'existe pas → INSERT classique.
+      - Si source existe déjà → UPDATE le title/metadata + updated_at = NOW().
     
-    # 💾 Ajouter les nouveaux
-    print(f"💾 Stockage des embeddings...")
+    RETURNING id : peu importe que ce soit un INSERT ou un UPDATE, on récupère
+    l'id de la ligne (existante ou nouvelle).
+    
+    EXCLUDED est une pseudo-table qui contient les valeurs qu'on voulait INSERT
+    (utile pour faire référence aux nouvelles valeurs dans la clause UPDATE).
+    """
+    metadata = metadata or {}
+    
+    cursor.execute("""
+        INSERT INTO documents (source, title, metadata)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (source) DO UPDATE
+            SET title = EXCLUDED.title,
+                metadata = EXCLUDED.metadata,
+                updated_at = NOW()
+        RETURNING id
+    """, (source, title, Jsonb(metadata)))
+    
+    document_id = cursor.fetchone()[0]
+    
+    # On supprime les anciens chunks pour repartir propre.
+    # (Le CASCADE ne se déclenche que sur DELETE du document, pas sur UPDATE,
+    # d'où ce DELETE explicite.)
+    cursor.execute("DELETE FROM chunks WHERE document_id = %s", (document_id,))
+    
+    return document_id
+
+
+def insert_chunks(cursor, document_id: int, chunks: list[str]) -> None:
+    """
+    INSERT batch via executemany.
+    
+    executemany prépare la requête UNE fois et la rejoue avec différents
+    paramètres → beaucoup plus rapide que N exécutions séparées (économise
+    un round-trip réseau + un parse SQL par appel).
+    """
+    print(f"💾 Embedding + storage de {len(chunks)} chunks...")
+    
+    rows = []
     for i, chunk in enumerate(chunks):
         embedding = get_embedding(chunk)
-        cursor.execute(
-            "INSERT INTO chunks (content, source, embedding) VALUES (%s, %s, %s)",
-            (chunk, source, embedding)
-        )
+        rows.append((document_id, i, chunk, embedding, VOYAGE_MODEL))
         if (i + 1) % 10 == 0:
             print(f"   → {i + 1}/{len(chunks)}")
     
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print(f"✅ {len(chunks)} chunks stockés pour {source}!\n")
+    cursor.executemany("""
+        INSERT INTO chunks (document_id, chunk_index, content, embedding, embedding_model)
+        VALUES (%s, %s, %s, %s, %s)
+    """, rows)
 
-# ===== MAIN =====
-if __name__ == "__main__":
-    # 1️⃣ CRÉER LA TABLE D'ABORD
-    create_table()
+
+def ingest_text(text: str, source: str, title: str | None = None, metadata: dict | None = None) -> None:
+    """Ingest un texte déjà disponible (lu depuis un fichier, par exemple)."""
+    print(f"\n{'='*60}\nINGESTING: {source}\n{'='*60}")
     
-    # 2️⃣ INGEST les docs
+    chunks = chunk_text(text)
+    print(f"✂️  {len(chunks)} chunks créés (semantic)")
+    
+    if not chunks:
+        print("⚠️  Aucun chunk généré, skip")
+        return
+    
+    with psycopg.connect(DB_CONNECTION_STRING) as conn:
+        with conn.cursor() as cur:
+            doc_id = upsert_document(cur, source, title, metadata)
+            insert_chunks(cur, doc_id, chunks)
+    
+    print(f"✅ {source} ingéré (doc_id={doc_id})")
+
+
+def ingest_url(url: str, source: str, title: str | None = None, metadata: dict | None = None) -> None:
+    """Télécharge une URL puis l'ingest."""
+    text = download_doc(url)
+    ingest_text(text, source, title, metadata)
+
+
+if __name__ == "__main__":
     docs = [
         {
             "url": "https://raw.githubusercontent.com/tiangolo/fastapi/master/README.md",
-            "source": "FastAPI README"
+            "source": "https://github.com/tiangolo/fastapi",
+            "title": "FastAPI README",
+            "metadata": {"type": "github_readme", "lang": "en", "topic": "web_framework"},
         },
         {
             "url": "https://raw.githubusercontent.com/langchain-ai/langgraph/main/README.md",
-            "source": "LangGraph README"
-        }
+            "source": "https://github.com/langchain-ai/langgraph",
+            "title": "LangGraph README",
+            "metadata": {"type": "github_readme", "lang": "en", "topic": "agent_framework"},
+        },
     ]
     
     for doc in docs:
-        print(f"\n{'='*60}")
-        print(f"INGESTING: {doc['source']}")
-        print(f"{'='*60}")
-        
-        text = download_doc(doc['url'])
-        chunks = chunk_text(text)
-        store_chunks(chunks, doc['source'])
+        ingest_url(**doc)
     
-    print("\n🎉 Tous les documents ingested !")
+    print("🎉 Tous les documents ingéré !")

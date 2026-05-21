@@ -50,4 +50,4 @@ postgres_data/
 # Miscellaneous
 .cache/
 .pytest_cache/
-.coverage
+.coveragecorpus/
