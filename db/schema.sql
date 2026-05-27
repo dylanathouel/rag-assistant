@@ -118,3 +118,30 @@ CREATE TRIGGER documents_set_updated_at
     BEFORE UPDATE ON documents
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
+
+
+-- ============================================================
+-- HYBRID SEARCH : colonne tsvector pour BM25 full-text
+-- ============================================================
+-- GENERATED ALWAYS AS ... STORED = backfill automatique sur ALTER TABLE,
+-- mis à jour automatiquement à chaque INSERT/UPDATE du content.
+-- DO $$ requis car ALTER TABLE ADD COLUMN ne supporte pas IF NOT EXISTS
+-- sur les colonnes GENERATED.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'chunks'::regclass
+          AND attname   = 'tsv'
+          AND NOT attisdropped
+    ) THEN
+        ALTER TABLE chunks
+            ADD COLUMN tsv tsvector
+            GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+    END IF;
+END;
+$$;
+
+CREATE INDEX IF NOT EXISTS chunks_tsv_gin_idx
+    ON chunks
+    USING gin (tsv);

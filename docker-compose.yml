@@ -8,16 +8,20 @@ services:
     environment:
       - VOYAGE_API_KEY=${VOYAGE_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=rag_db
       - DB_USER=macdedylan
       - DB_PASSWORD=password
+      - RERANKER_BACKEND=${RERANKER_BACKEND:-none}
+      - CONTEXTUAL_RETRIEVAL=${CONTEXTUAL_RETRIEVAL:-false}
+      - HYDE_ENABLED=${HYDE_ENABLED:-false}
     depends_on:
       - postgres
     ports:
       - "8000:8000"
-      - "8501:8501"
 
   postgres:
     image: pgvector/pgvector:pg17

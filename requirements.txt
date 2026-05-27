@@ -8,3 +8,6 @@ streamlit==1.39.0
 fastapi==0.115.4
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
+# S2 — RAG améliorations
+anthropic>=0.40.0
+cohere>=5.0.0

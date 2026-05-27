@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000, description="La question utilisateur")
     top_k: int = Field(5, ge=1, le=20, description="Nombre de chunks à récupérer")
+    hybrid: bool = Field(True, description="Hybrid search BM25+vecteur (True) ou vectoriel pur (False)")
 
 
 class Source(BaseModel):

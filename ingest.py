@@ -13,7 +13,7 @@ import requests
 import psycopg
 from psycopg.types.json import Jsonb
 
-from config import DB_CONNECTION_STRING, VOYAGE_MODEL
+from config import DB_CONNECTION_STRING, VOYAGE_MODEL, CONTEXTUAL_RETRIEVAL
 from utils import get_embedding
 from rag.chunker import chunk_text
 
@@ -61,26 +61,35 @@ def upsert_document(cursor, source: str, title: str | None = None, metadata: dic
     return document_id
 
 
-def insert_chunks(cursor, document_id: int, chunks: list[str]) -> None:
+def insert_chunks(cursor, document_id: int, chunks: list[str], document_text: str | None = None) -> None:
     """
     INSERT batch via executemany.
-    
-    executemany prépare la requête UNE fois et la rejoue avec différents
-    paramètres → beaucoup plus rapide que N exécutions séparées (économise
-    un round-trip réseau + un parse SQL par appel).
+
+    Si CONTEXTUAL_RETRIEVAL=true et document_text fourni, Claude Haiku génère un contexte
+    court pour chaque chunk (préfixé au chunk avant embedding, stocké dans chunks.context).
     """
     print(f"💾 Embedding + storage de {len(chunks)} chunks...")
-    
+    if CONTEXTUAL_RETRIEVAL and document_text:
+        print("   🧠 Contextual Retrieval activé — génération des contextes via Claude Haiku...")
+        from rag.contextual import generate_chunk_context
+
     rows = []
     for i, chunk in enumerate(chunks):
-        embedding = get_embedding(chunk)
-        rows.append((document_id, i, chunk, embedding, VOYAGE_MODEL))
+        context = None
+        if CONTEXTUAL_RETRIEVAL and document_text:
+            context = generate_chunk_context(document_text, chunk)
+            embed_text = f"{context}\n\n{chunk}"
+        else:
+            embed_text = chunk
+
+        embedding = get_embedding(embed_text)
+        rows.append((document_id, i, chunk, context, embedding, VOYAGE_MODEL))
         if (i + 1) % 10 == 0:
             print(f"   → {i + 1}/{len(chunks)}")
-    
+
     cursor.executemany("""
-        INSERT INTO chunks (document_id, chunk_index, content, embedding, embedding_model)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO chunks (document_id, chunk_index, content, context, embedding, embedding_model)
+        VALUES (%s, %s, %s, %s, %s, %s)
     """, rows)
 
 
@@ -98,8 +107,8 @@ def ingest_text(text: str, source: str, title: str | None = None, metadata: dict
     with psycopg.connect(DB_CONNECTION_STRING) as conn:
         with conn.cursor() as cur:
             doc_id = upsert_document(cur, source, title, metadata)
-            insert_chunks(cur, doc_id, chunks)
-    
+            insert_chunks(cur, doc_id, chunks, document_text=text)
+
     print(f"✅ {source} ingéré (doc_id={doc_id})")
 
 

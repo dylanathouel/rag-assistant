@@ -1,0 +1,122 @@
+[
+  {
+    "question": "What is FastAPI?",
+    "ground_truth": "FastAPI is a modern, fast web framework for building APIs with Python based on standard Python type hints. It is one of the fastest Python frameworks available, built on top of Starlette for web handling and Pydantic for data validation."
+  },
+  {
+    "question": "What are the key features of FastAPI?",
+    "ground_truth": "FastAPI's key features include: very high performance comparable to NodeJS and Go, fast development speed, fewer bugs due to type hints, intuitive editor support, automatic interactive API documentation via Swagger UI and ReDoc, and standards-based on OpenAPI and JSON Schema."
+  },
+  {
+    "question": "How does FastAPI generate interactive documentation?",
+    "ground_truth": "FastAPI automatically generates interactive API documentation using Swagger UI (accessible at /docs) and ReDoc (accessible at /redoc), based on the OpenAPI standard. No extra code is needed — the docs are derived from the code itself."
+  },
+  {
+    "question": "What Python version does FastAPI require?",
+    "ground_truth": "FastAPI requires Python 3.8 or higher. It leverages Python type hints introduced and expanded in Python 3.6+ for validation and serialization."
+  },
+  {
+    "question": "What is Pydantic's role in FastAPI?",
+    "ground_truth": "Pydantic is used by FastAPI for data validation and serialization. It handles request body parsing, query parameter validation, and response model serialization based on Python type annotations."
+  },
+  {
+    "question": "How does FastAPI handle async programming?",
+    "ground_truth": "FastAPI supports both async and sync path operation functions. You can declare path operations with async def to use Python's asyncio, allowing high concurrency without blocking. Regular def functions are also supported and run in a thread pool."
+  },
+  {
+    "question": "What is the performance benchmark of FastAPI?",
+    "ground_truth": "FastAPI has very high performance, on par with NodeJS and Go. It is one of the fastest Python frameworks available, built on Starlette which uses ASGI and uvicorn under the hood."
+  },
+  {
+    "question": "How do you install FastAPI?",
+    "ground_truth": "FastAPI can be installed with pip using: pip install fastapi. For a production server, uvicorn is also needed: pip install 'uvicorn[standard]'. You can install both with: pip install 'fastapi[standard]'."
+  },
+  {
+    "question": "What is Starlette in relation to FastAPI?",
+    "ground_truth": "Starlette is the web framework that FastAPI is built on top of for all the web (ASGI) parts. FastAPI adds type validation, serialization, and automatic documentation on top of Starlette's routing, middleware, and request/response handling."
+  },
+  {
+    "question": "What are the main dependencies of FastAPI?",
+    "ground_truth": "FastAPI depends on Starlette for the web parts and Pydantic for the data parts. These are the only required dependencies. Optional dependencies include uvicorn for running the server and python-multipart for form data support."
+  },
+  {
+    "question": "What is LangGraph?",
+    "ground_truth": "LangGraph is a library for building stateful, multi-actor applications with large language models (LLMs). It extends LangChain and allows developers to build workflows with cycles, enabling more complex agentic behaviors than simple directed acyclic graphs."
+  },
+  {
+    "question": "How does LangGraph differ from LangChain?",
+    "ground_truth": "LangGraph is built on top of LangChain and adds support for cyclic graphs and stateful workflows. While LangChain focuses on linear chains and DAG-like pipelines, LangGraph introduces nodes, edges, and shared state to build more complex agent loops."
+  },
+  {
+    "question": "What are nodes in LangGraph?",
+    "ground_truth": "In LangGraph, nodes represent individual computation steps or agents in the workflow. Each node is typically a Python function or a LangChain runnable that takes the current state as input and returns an updated state."
+  },
+  {
+    "question": "What are edges in LangGraph?",
+    "ground_truth": "Edges in LangGraph connect nodes and define the flow of execution. There are regular edges (always go from one node to another) and conditional edges (determine the next node based on the current state, enabling branching logic)."
+  },
+  {
+    "question": "What is state in LangGraph?",
+    "ground_truth": "State in LangGraph is a shared data structure (typically a TypedDict or Pydantic model) that is passed between nodes. Each node can read from and write to the state, and the graph manages state updates across the execution."
+  },
+  {
+    "question": "How do you compile a LangGraph graph?",
+    "ground_truth": "A LangGraph graph is compiled by calling the .compile() method on a StateGraph or MessageGraph object. Compilation validates the graph structure, resolves edges, and optionally attaches a checkpointer for persistence."
+  },
+  {
+    "question": "What is human-in-the-loop in LangGraph?",
+    "ground_truth": "Human-in-the-loop in LangGraph allows pausing graph execution at specific points to wait for human input or approval. This is implemented using interrupt_before or interrupt_after on nodes, combined with a checkpointer for state persistence."
+  },
+  {
+    "question": "What is persistence in LangGraph?",
+    "ground_truth": "Persistence in LangGraph allows saving and resuming graph execution state across multiple interactions. It is implemented via checkpointers (e.g., MemorySaver, SqliteSaver) that store state snapshots, enabling long-running conversations and human-in-the-loop workflows."
+  },
+  {
+    "question": "What are checkpoints in LangGraph?",
+    "ground_truth": "Checkpoints are saved snapshots of the graph state at a specific point during execution. They are stored by a checkpointer and allow the graph to be resumed from any previous state, enabling time-travel debugging and persistent conversations."
+  },
+  {
+    "question": "How do you stream output from a LangGraph graph?",
+    "ground_truth": "LangGraph graphs support streaming via the .stream() method, which yields state updates as nodes execute. You can stream individual node outputs, token-level LLM outputs (with stream_mode='messages'), or the full state after each step."
+  },
+  {
+    "question": "What are subgraphs in LangGraph?",
+    "ground_truth": "Subgraphs in LangGraph allow embedding one compiled graph as a node within another graph. This enables modular, hierarchical workflows where complex subsystems (like a tool-calling agent) can be composed into larger multi-agent systems."
+  },
+  {
+    "question": "What is LangGraph Studio?",
+    "ground_truth": "LangGraph Studio is a visual IDE for building, testing, and debugging LangGraph agents. It provides a graphical view of the graph structure, allows interactive execution with human-in-the-loop, and supports real-time state inspection."
+  },
+  {
+    "question": "How do you add a conditional edge in LangGraph?",
+    "ground_truth": "Conditional edges are added with add_conditional_edges(source_node, condition_function, mapping). The condition function receives the current state and returns a string key; the mapping translates that key to the next node name."
+  },
+  {
+    "question": "What is a StateGraph in LangGraph?",
+    "ground_truth": "StateGraph is the main graph class in LangGraph. It takes a state schema (TypedDict or Pydantic model) at initialization and provides methods to add nodes (add_node), add edges (add_edge, add_conditional_edges), set the entry point, and compile the graph."
+  },
+  {
+    "question": "What is the entry point in a LangGraph graph?",
+    "ground_truth": "The entry point is the first node to execute when the graph is invoked. It is set with set_entry_point(node_name) or by adding an edge from START (a special constant) to the desired first node."
+  },
+  {
+    "question": "How does FastAPI validate request bodies?",
+    "ground_truth": "FastAPI validates request bodies by declaring a Pydantic model as the type annotation of a path operation parameter. FastAPI automatically reads the request body as JSON, validates it against the model, and returns a 422 Unprocessable Entity error if validation fails."
+  },
+  {
+    "question": "How do you define path parameters in FastAPI?",
+    "ground_truth": "Path parameters are defined by including them in curly braces in the path string, e.g. @app.get('/items/{item_id}'). The parameter is then declared as a function argument with its type, and FastAPI automatically parses and validates it."
+  },
+  {
+    "question": "What is dependency injection in FastAPI?",
+    "ground_truth": "FastAPI has a built-in dependency injection system using the Depends() function. Dependencies are declared as function parameters and FastAPI automatically resolves, calls, and injects them. This is used for shared logic like authentication, database connections, and parameter validation."
+  },
+  {
+    "question": "How do you run a FastAPI application?",
+    "ground_truth": "A FastAPI application is typically run with Uvicorn: uvicorn main:app --reload. The --reload flag enables hot reloading during development. For production, --reload should be omitted and workers can be configured."
+  },
+  {
+    "question": "What OpenAPI features does FastAPI support?",
+    "ground_truth": "FastAPI is based on and fully compliant with OpenAPI (formerly Swagger) and JSON Schema standards. It automatically generates an OpenAPI schema accessible at /openapi.json, which powers the interactive documentation at /docs (Swagger UI) and /redoc (ReDoc)."
+  }
+]

@@ -1,0 +1,11 @@
+# Dépendances d'évaluation uniquement — ne pas inclure dans le build Docker principal.
+# ragas 0.2.x requiert langchain>=0.3, compatible avec le projet.
+#
+# Installation :
+#   docker compose exec rag-app pip install -r requirements-eval.txt
+# ou en local :
+#   pip install -r requirements-eval.txt
+ragas>=0.2.0
+datasets>=2.14.0
+langchain-openai>=0.2.0
+langchain-community>=0.3.0

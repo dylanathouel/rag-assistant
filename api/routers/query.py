@@ -17,7 +17,7 @@ router = APIRouter()
 
 @router.post("", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
-    chunks = search_chunks(req.question, top_k=req.top_k)
+    chunks = search_chunks(req.question, top_k=req.top_k, hybrid=req.hybrid)
 
     if not chunks:
         return QueryResponse(

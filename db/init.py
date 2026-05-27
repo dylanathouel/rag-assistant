@@ -2,6 +2,10 @@
 db/init.py — Applique le schéma SQL à la DB.
 Idempotent : peut être ré-exécuté sans rien casser (les CREATE TABLE IF NOT EXISTS protègent).
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pathlib import Path
 import psycopg
 from config import DB_CONNECTION_STRING
